@@ -36,16 +36,7 @@ make -j4
 sudo make install
 
 cd ..
-git clone https://github.com/commaai/c-capnproto.git
-cd c-capnproto
-git submodule update --init --recursive
-autoreconf -f -i -s
-CFLAGS="-fPIC" ./configure --prefix=/usr/local
-make -j4
-sudo make install
-
-
-
+pip install -r requirements.txt
 
 
 
