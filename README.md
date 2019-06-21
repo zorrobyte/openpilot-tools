@@ -31,7 +31,8 @@ Setup
 
 
 1. Install native dependencies (Mac and Ubuntu sections listed below)
-    **Ubuntu script based installation*
+    
+    **Ubuntu script based installation**
     ```bash
     ./install_ubuntu.sh
     ```
