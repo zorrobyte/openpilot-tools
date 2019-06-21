@@ -31,9 +31,13 @@ Setup
 
 
 1. Install native dependencies (Mac and Ubuntu sections listed below)
-
-    **Ubuntu**
-
+    **Ubuntu script based installation*
+    ```bash
+    ./install_ubuntu.sh
+    ```
+   
+    **Ubuntu manual installation**
+    
     - core tools
       ```bash
       sudo apt install git curl python-pip
