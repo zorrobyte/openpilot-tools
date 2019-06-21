@@ -36,7 +36,7 @@ make -j4
 sudo make install
 
 cd ..
-pip install -r requirements.txt
+sudo pip install -r requirements.txt
 
 
 
