@@ -6,18 +6,18 @@ import json
 import bz2
 import tempfile
 import requests
-import subprocess32 as subprocess
+import subprocess
 from aenum import Enum
-
+import capnp
 import numpy as np
 
 import platform
-if platform.system() == "Darwin":
-  os.environ["LA_LIBRARY_FILEPATH"] = "/usr/local/opt/libarchive/lib/libarchive.dylib"
-import libarchive.public
 
 from tools.lib.exceptions import DataUnreadableError
-from tools.lib.filereader import FileReader
+try:
+  from xx.chffr.lib.filereader import FileReader
+except ImportError:
+  from tools.lib.filereader import FileReader
 from tools.lib.log_util import convert_old_pkt_to_new
 from cereal import log as capnp_log
 
@@ -28,7 +28,7 @@ def index_log(fn):
   index_log = os.path.join(index_log_dir, "index_log")
   phonelibs_dir = os.path.join(OP_PATH, 'phonelibs')
 
-  subprocess.check_call(["make", "PHONELIBS=" + phonelibs_dir], cwd=index_log_dir, stdout=open("/dev/null","w"))
+  subprocess.check_call(["make", "PHONELIBS=" + phonelibs_dir], cwd=index_log_dir, stdout=subprocess.DEVNULL)
 
   try:
     dat = subprocess.check_output([index_log, fn, "-"])
@@ -36,24 +36,17 @@ def index_log(fn):
     raise DataUnreadableError("%s capnp is corrupted/truncated" % fn)
   return np.frombuffer(dat, dtype=np.uint64)
 
-def event_read_multiple(fn):
-  # pycapnp read_multiple is broken
-
-  idx = index_log(fn)
-  with open(fn, "rb") as f:
-    dat = f.read()
-
-  return [capnp_log.Event.from_bytes(dat[idx[i]:idx[i+1]])
-          for i in xrange(len(idx)-1)]
-
 def event_read_multiple_bytes(dat):
   with tempfile.NamedTemporaryFile() as dat_f:
     dat_f.write(dat)
     dat_f.flush()
     idx = index_log(dat_f.name)
 
+  end_idx = np.uint64(len(dat))
+  idx = np.append(idx, end_idx)
+
   return [capnp_log.Event.from_bytes(dat[idx[i]:idx[i+1]])
-          for i in xrange(len(idx)-1)]
+          for i in range(len(idx)-1)]
 
 
 # this is an iterator itself, and uses private variables from LogReader
@@ -62,7 +55,7 @@ class MultiLogIterator(object):
     self._log_paths = log_paths
     self._wraparound = wraparound
 
-    self._first_log_idx = next(i for i in xrange(len(log_paths)) if log_paths[i] is not None)
+    self._first_log_idx = next(i for i in range(len(log_paths)) if log_paths[i] is not None)
     self._current_log = self._first_log_idx
     self._idx = 0
     self._log_readers = [None]*len(log_paths)
@@ -71,7 +64,7 @@ class MultiLogIterator(object):
   def _log_reader(self, i):
     if self._log_readers[i] is None and self._log_paths[i] is not None:
       log_path = self._log_paths[i]
-      print "LogReader:", log_path
+      print("LogReader:%s" % log_path)
       self._log_readers[i] = LogReader(log_path)
 
     return self._log_readers[i]
@@ -85,7 +78,7 @@ class MultiLogIterator(object):
       self._idx += 1
     else:
       self._idx = 0
-      self._current_log = next(i for i in xrange(self._current_log + 1, len(self._log_readers) + 1) if i == len(self._log_readers) or self._log_paths[i] is not None)
+      self._current_log = next(i for i in range(self._current_log + 1, len(self._log_readers) + 1) if i == len(self._log_readers) or self._log_paths[i] is not None)
       # wraparound
       if self._current_log == len(self._log_readers):
         if self._wraparound:
@@ -93,7 +86,7 @@ class MultiLogIterator(object):
         else:
           raise StopIteration
 
-  def next(self):
+  def __next__(self):
     while 1:
       lr = self._log_reader(self._current_log)
       ret = lr._ents[self._idx]
@@ -122,7 +115,7 @@ class MultiLogIterator(object):
 
 
 class LogReader(object):
-  def __init__(self, fn, canonicalize=True):
+  def __init__(self, fn, canonicalize=True, only_union_types=False):
     _, ext = os.path.splitext(fn)
     data_version = None
 
@@ -135,6 +128,9 @@ class LogReader(object):
     elif ext == ".bz2":
       dat = bz2.decompress(dat)
     elif ext == ".7z":
+      if platform.system() == "Darwin":
+        os.environ["LA_LIBRARY_FILEPATH"] = "/usr/local/opt/libarchive/lib/libarchive.dylib"
+      import libarchive.public
       with libarchive.public.memory_reader(dat) as aa:
         mdat = []
         for it in aa:
@@ -180,12 +176,19 @@ class LogReader(object):
 
     self.data_version = data_version
     self._do_conversion = needs_conversion and canonicalize
+    self._only_union_types = only_union_types
     self._ents = ents
 
   def __iter__(self):
     for ent in self._ents:
       if self._do_conversion:
         yield convert_old_pkt_to_new(ent, self.data_version)
+      elif self._only_union_types:
+        try:
+          ent.which()
+          yield ent
+        except capnp.lib.capnp.KjException:
+          pass
       else:
         yield ent
 

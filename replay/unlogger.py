@@ -107,12 +107,14 @@ class UnloggerWorker(object):
         # Frame exists, make sure we have a framereader.
         # load the frame readers as needed
         s1 = time.time()
-        img = self._frame_reader.get(frame_id, pix_fmt="yuv420p")
+        img = self._frame_reader.get(frame_id, pix_fmt="rgb24")
         fr_time = time.time() - s1
         if fr_time > 0.05:
-          print "FRAME(%d) LAG -- %.2f ms" % (frame_id, fr_time*1000.0)
+          print("FRAME(%d) LAG -- %.2f ms" % (frame_id, fr_time*1000.0))
 
         if img is not None:
+          img = img[:, :, ::-1] # Convert RGB to BGR, which is what the camera outputs
+          img = img.flatten()
           smsg.frame.image = img.tobytes()
 
       data_socket.send_pyobj((cookie, typ, msg.logMonoTime, route_time), flags=zmq.SNDMORE)
@@ -140,9 +142,9 @@ class UnloggerWorker(object):
       exit()
 
     if seek_to is not None:
-      print "seeking", seek_to
+      print("seeking", seek_to)
       if not self._lr.seek(seek_to):
-        print "Can't seek: time out of bounds"
+        print("Can't seek: time out of bounds")
       else:
         next(self._lr)   # ignore one
     return route
@@ -238,7 +240,7 @@ def unlogger_thread(command_address, forward_commands_address, data_address, run
 
       # Print time.
       if abs(printed_at - route_time) > 5.:
-        print "at", route_time
+        print("at", route_time)
         printed_at = route_time
 
       if typ not in send_funcs:
@@ -246,7 +248,7 @@ def unlogger_thread(command_address, forward_commands_address, data_address, run
           # Remove so we don't keep printing warnings.
           address = address_mapping.pop(typ)
           try:
-            print "binding", typ
+            print("binding", typ)
             send_funcs[typ] = _get_address_send_func(address)
           except Exception as e:
             print("couldn't replay {}: {}".format(typ, e))
@@ -262,7 +264,7 @@ def unlogger_thread(command_address, forward_commands_address, data_address, run
         lag = msg_time_offset - real_time_offset
         if lag > 0 and lag < 30: # a large jump is OK, likely due to an out of order segment
           if lag > 1:
-            print "sleeping for", lag
+            print("sleeping for", lag)
           time.sleep(lag)
         elif lag < -1:
           # Relax the real time schedule when we slip far behind.
@@ -309,7 +311,7 @@ def _get_address_mapping(args):
   return address_mapping
 
 def keyboard_controller_thread(q, route_start_time):
-  print "keyboard waiting for input"
+  print("keyboard waiting for input")
   kb = KBHit()
   while 1:
     c = kb.getch()
@@ -341,7 +343,7 @@ def get_arg_parser():
 
   parser.add_argument("route_name", type=(lambda x: x.replace("#", "|")), nargs="?",
                       help="The route whose messages will be published.")
-  parser.add_argument("data_dir", nargs='?', default=os.getenv('UNLOGGER_DATA_DIR'), 
+  parser.add_argument("data_dir", nargs='?', default=os.getenv('UNLOGGER_DATA_DIR'),
 		      help="Path to directory in which log and camera files are located.")
 
   parser.add_argument("--no-loop", action="store_true", help="Stop at the end of the replay.")
@@ -396,7 +398,7 @@ def main(argv):
     command_sock.send_pyobj(
       SetRoute(args.route_name, 0, args.data_dir))
   else:
-    print "waiting for external command..."
+    print("waiting for external command...")
     route_start_time = 0
 
   subprocesses = {}

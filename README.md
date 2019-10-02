@@ -37,7 +37,7 @@ Setup
     - core tools
       ```bash
       sudo apt install git curl python-pip
-      sudo pip install --upgrade pip>=18.0
+      sudo pip install --upgrade pip>=18.0 pipenv
       ```
 
     - ffmpeg (tested with 3.3.2)
@@ -81,7 +81,7 @@ Setup
     - core tools
       ``` bash
       brew install git
-      sudo pip install --upgrade pip
+      sudo pip install --upgrade pip pipenv
       xcode-select --install
       ```
 
@@ -138,6 +138,8 @@ Setup
     ```bash
     git clone https://github.com/commaai/openpilot.git
     cd openpilot
+    pipenv install # Install dependencies in a virtualenv
+    pipenv shell # Activate the virtualenv
     ```
 
     **For Mac users**
@@ -156,9 +158,7 @@ Setup
     ```bash
     git clone https://github.com/commaai/openpilot-tools.git tools
     cd tools
-    # sudo pip install if not using a venv
-    pip install -r requirements.txt
-    pip install -r ../requirements_openpilot.txt
+    pip install -r requirements.txt # Install openpilot-tools dependencies in virtualenv
     ```
 
 4. Add openpilot to your `PYTHONPATH`.
@@ -229,7 +229,7 @@ Usage:
 python carcontrols/joystickd.py
 
 # In another terminal:
-selfdrive/boardd/boardd.py # Make sure the safety setting is hardcoded to ALL_OUTPUT
+selfdrive/boardd/tests/boardd_old.py # Make sure the safety setting is hardcoded to ALL_OUTPUT
 
 # In another terminal:
 python carcontrols/debug_controls.py
